@@ -1,0 +1,21 @@
+---
+name: PEMessage#bash-debug-adapter
+description: Bash shell debugger, based on bashdb (PEMessage fork).
+homepage: https://github.com/PEMessage/vscode-bash-debug
+licenses:
+  - MIT
+languages:
+  - Bash
+categories:
+  - DAP
+
+source:
+  id: pkg:github/PEMessage/vscode-bash-debug@nightly
+  asset:
+    file: bash-debug.vsix
+
+bin:
+  bash-debug-adapter: node:extension/out/bashDebug.js
+
+opt:
+  bashdb/: extension/bashdb_dir/
