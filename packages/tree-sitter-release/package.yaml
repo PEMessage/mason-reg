@@ -1,0 +1,20 @@
+---
+name: tree-sitter-release
+description: |
+  Prebuilt tree-sitter CLI binaries for x86_64 Linux, linked against glibc 2.17 (runs on CentOS 7 / RHEL 7 and newer).
+homepage: https://github.com/PEMessage/tree-sitter-release
+licenses:
+  - MIT
+languages: []
+categories:
+  - Compiler
+
+source:
+  id: pkg:github/PEMessage/tree-sitter-release@v0.25.10
+  asset:
+    - target: linux_x64_gnu
+      file: tree-sitter-{{version}}-linux-x86_64.gz
+      bin: tree-sitter-{{version}}-linux-x86_64
+
+bin:
+  tree-sitter: "{{source.asset.bin}}"
