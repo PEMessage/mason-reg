@@ -15,9 +15,9 @@ source:
   # arkts-lsp is not published to npm; the launcher (with the ace-server bundle) is only distributed as a GitHub
   # release asset. Installing that tarball through npm also resolves its `arkts-lsp-proxy` runtime dependency,
   # which is what the launcher requires at startup.
-  id: pkg:generic/PEMessage/arkts-lsp@0.2.1
+  id: pkg:generic/PEMessage/arkts-lsp@0.3.0
   build:
-    run: npm install --no-audit https://github.com/PEMessage/arkts-lsp/releases/download/nightly/arkts-lsp-0.2.1.tgz
+    run: npm install --no-audit https://github.com/PEMessage/arkts-lsp/releases/download/nightly/arkts-lsp-0.3.0.tgz
 
 bin:
   arkts-lsp: npm:arkts-lsp
