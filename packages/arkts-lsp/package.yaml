@@ -1,0 +1,23 @@
+---
+name: arkts-lsp
+description: |
+  One-click standalone ArkTS / ArkUI language server. Wraps DevEco Studio's ace-server with the upstream
+  arkts-lsp-proxy and requires the official HarmonyOS command-line tools to be available on PATH.
+homepage: https://github.com/PEMessage/arkts-lsp
+licenses:
+  - MIT
+languages:
+  - ArkTS
+categories:
+  - LSP
+
+source:
+  # arkts-lsp is not published to npm; the launcher (with the ace-server bundle) is only distributed as a GitHub
+  # release asset. Installing that tarball through npm also resolves its `arkts-lsp-proxy` runtime dependency,
+  # which is what the launcher requires at startup.
+  id: pkg:generic/PEMessage/arkts-lsp@0.2.1
+  build:
+    run: npm install --no-audit https://github.com/PEMessage/arkts-lsp/releases/download/nightly/arkts-lsp-0.2.1.tgz
+
+bin:
+  arkts-lsp: npm:arkts-lsp
