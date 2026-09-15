@@ -1,0 +1,195 @@
+---
+name: intellij-server
+description: |
+  IntelliJ-powered language server for Java and Kotlin. This is the standalone server that backs the
+  "Java and Kotlin by IntelliJ IDEA" preview extension for VS Code: code intelligence, Maven/Gradle/
+  Bazel project import, refactoring and debugging for JVM projects.
+
+  The server is only distributed through the extension's platform-specific archive. The `intellij-server-lsp`
+  executable installed here is a thin wrapper around JetBrains' launcher that derives the accepted-EULA hash
+  from the bundled `EULA.txt` and defaults to `--stdio`, so it can be used directly by Neovim (and any other
+  LSP client).
+
+  Preview builds expire 30 days after they are published; update the package version to renew the period.
+homepage: https://www.jetbrains.com/help/intellij-vscode/About-instance.html
+licenses:
+  - proprietary
+languages:
+  - Java
+  - Kotlin
+categories:
+  - LSP
+
+source:
+  # JetBrains publishes these archives on download.jetbrains.com only, without a machine-readable
+  # release feed, so there is no Renovate datasource. Bump the version manually and take the
+  # matching archives from the extension's per-platform `server-bundle.json`.
+  id: pkg:generic/JetBrains/intellij-server@263.4702.0
+  build:
+    - target: unix
+      env:
+        VERSION: "{{version}}"
+      run: |
+        base="https://download.jetbrains.com/language-server/intellij-server/${VERSION}"
+        host="$(uname -s)"
+        arch="$(uname -m)"
+        archive=""
+        case "${host}" in
+          Linux)
+            case "${arch}" in
+              x86_64|amd64) archive="intellij-server-${VERSION}.tar.gz" ;;
+              aarch64|arm64) archive="intellij-server-${VERSION}-aarch64.tar.gz" ;;
+            esac
+            ;;
+          Darwin)
+            case "${arch}" in
+              x86_64) archive="intellij-server-${VERSION}.sit" ;;
+              arm64) archive="intellij-server-${VERSION}-aarch64.sit" ;;
+            esac
+            ;;
+        esac
+        if [ -z "${archive}" ]; then
+          echo "Unsupported platform: ${host} ${arch}" >&2
+          exit 1
+        fi
+
+        # The archive is ~370 MB; retry transient failures instead of restarting the install.
+        curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors "${base}/${archive}" -o "${archive}"
+        case "${archive}" in
+          *.tar.gz)
+            tar -xzf "${archive}" --strip-components=1
+            ;;
+          *.sit)
+            # macOS builds ship as a zip despite the extension, with a single top-level directory.
+            tmp="$(mktemp -d)"
+            unzip -q "${archive}" -d "${tmp}"
+            mv "${tmp}"/*/* .
+            rm -rf "${tmp}"
+            ;;
+        esac
+        rm -f "${archive}"
+        chmod +x bin/intellij-server
+
+        cat > bin/intellij-server-lsp <<'IJ_SERVER_WRAPPER'
+        #!/usr/bin/env bash
+        # Wrapper around JetBrains' standalone IntelliJ language server.
+        #
+        # Resolves its own location (following the symlink Mason creates in its bin/ directory), passes the
+        # accepted-EULA hash derived from the bundled EULA.txt, and defaults to `--stdio`. Extra arguments are
+        # forwarded, so `--socket`, `--multi-client`, `--log-level`, etc. keep working.
+        set -euo pipefail
+
+        src="${BASH_SOURCE[0]}"
+        while [ -L "${src}" ]; do
+          dir="$(cd -P "$(dirname "${src}")" >/dev/null 2>&1 && pwd)"
+          src="$(readlink "${src}")"
+          case "${src}" in
+            /*) ;;
+            *) src="${dir}/${src}" ;;
+          esac
+        done
+        bin_dir="$(cd -P "$(dirname "${src}")" >/dev/null 2>&1 && pwd)"
+        server_root="$(cd -P "${bin_dir}/.." && pwd)"
+
+        has_flag() {
+          flag="${1}"
+          shift
+          for arg in "$@"; do
+            [ "${arg}" = "${flag}" ] && return 0
+            case "${arg}" in
+              "${flag}"=*) return 0 ;;
+            esac
+          done
+          return 1
+        }
+
+        args=()
+        if [ -f "${server_root}/EULA.txt" ]; then
+          if command -v sha256sum >/dev/null 2>&1; then
+            eula_hash="$(sha256sum "${server_root}/EULA.txt" | cut -c1-16)"
+          else
+            eula_hash="$(shasum -a 256 "${server_root}/EULA.txt" | cut -c1-16)"
+          fi
+          args+=(--eula "${eula_hash}")
+        fi
+
+        if ! has_flag --socket "$@" && ! has_flag --client "$@"; then
+          args+=(--stdio)
+        fi
+        if ! has_flag --system-path "$@"; then
+          cache_root="${XDG_CACHE_HOME:-${HOME}/.cache}"
+          mkdir -p "${cache_root}/intellij-server"
+          args+=(--system-path "${cache_root}/intellij-server")
+        fi
+
+        exec "${bin_dir}/intellij-server" "${args[@]}" "$@"
+        IJ_SERVER_WRAPPER
+        chmod +x bin/intellij-server-lsp
+      bin: bin/intellij-server-lsp
+
+    - target: win
+      env:
+        VERSION: "{{version}}"
+      run: |
+        $base = "https://download.jetbrains.com/language-server/intellij-server/$env:VERSION"
+        $archive = if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") {
+          "intellij-server-$env:VERSION-aarch64.win.zip"
+        } else {
+          "intellij-server-$env:VERSION.win.zip"
+        }
+
+        $ProgressPreference = "SilentlyContinue"
+        for ($attempt = 1; $attempt -le 5; $attempt++) {
+          try {
+            Invoke-WebRequest -Uri "$base/$archive" -OutFile $archive -ErrorAction Stop
+            break
+          } catch {
+            if ($attempt -eq 5) { throw }
+            Start-Sleep -Seconds 5
+          }
+        }
+        # The Windows archive already has bin/, lib/, EULA.txt at its root.
+        Expand-Archive -Path $archive -DestinationPath . -Force
+        Remove-Item $archive
+
+        @'
+        $ErrorActionPreference = "Stop"
+
+        $BinDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+        $ServerRoot = Split-Path -Parent $BinDir
+
+        $ServerArgs = @()
+        $Eula = Join-Path $ServerRoot "EULA.txt"
+        if (Test-Path $Eula) {
+          $Hash = (Get-FileHash -Algorithm SHA256 -Path $Eula).Hash.Substring(0, 16).ToLowerInvariant()
+          $ServerArgs += "--eula"; $ServerArgs += $Hash
+        }
+
+        if (-not ($args -contains "--socket") -and -not ($args -contains "--client")) {
+          $ServerArgs += "--stdio"
+        }
+
+        if (-not ($args -contains "--system-path")) {
+          $CacheRoot = if ($env:XDG_CACHE_HOME) {
+            $env:XDG_CACHE_HOME
+          } else {
+            Join-Path $env:LOCALAPPDATA "intellij-server"
+          }
+          New-Item -ItemType Directory -Force -Path $CacheRoot | Out-Null
+          $ServerArgs += "--system-path"; $ServerArgs += $CacheRoot
+        }
+
+        & (Join-Path $BinDir "intellij-server.exe") @ServerArgs @args
+        exit $LASTEXITCODE
+        '@ | Set-Content -Path "bin\intellij-server-lsp.ps1" -Encoding utf8
+
+        @'
+        @echo off
+        powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0intellij-server-lsp.ps1" %*
+        '@ | Set-Content -Path "bin\intellij-server-lsp.cmd" -Encoding ascii
+      bin: bin/intellij-server-lsp.cmd
+
+bin:
+  # NOTE: `intellij-server` is the executable name used by the upstream `kotlin-lsp` package, so this
+  # package exposes a distinct name to avoid clashing with it in Mason's shared bin/ directory.
+  intellij-server-lsp: "{{source.build.bin}}"
