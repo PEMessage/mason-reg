@@ -1,0 +1,21 @@
+---
+name: ets-language-server
+description: |
+  Language server for ArkTS (`.ets`), the TypeScript-based language used for HarmonyOS / ArkUI application
+  development.
+homepage: https://github.com/ohosvscode/arkTS/tree/next/packages/language-server
+licenses:
+  - MIT
+languages:
+  - ArkTS
+categories:
+  - LSP
+
+source:
+  # Scoped npm packages MUST be URL-encoded in the purl (`@` -> `%40`). Installing the package also resolves
+  # `@ohos-rs/oxk`, which ships platform-specific native binaries as optional dependencies, so no extra setup is
+  # required. Requires Node >= 16.
+  id: pkg:npm/%40arkts/language-server@1.3.10
+
+bin:
+  ets-language-server: npm:ets-language-server
