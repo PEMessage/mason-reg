@@ -12,12 +12,13 @@ categories:
   - LSP
 
 source:
-  # arkts-lsp is not published to npm; the launcher (with the ace-server bundle) is only distributed as a GitHub
-  # release asset. Installing that tarball through npm also resolves its `arkts-lsp-proxy` runtime dependency,
-  # which is what the launcher requires at startup.
-  id: pkg:generic/PEMessage/arkts-lsp@0.3.0
+  # arkts-lsp is not published to npm; the launcher (bundling the ace-server build and the vendored
+  # arkts-lsp-proxy) is only distributed through the unversioned `nightly` GitHub release. Installing the tarball
+  # through npm also resolves its `json5` and `vscode-jsonrpc` runtime dependencies, which the launcher requires
+  # at startup.
+  id: pkg:generic/PEMessage/arkts-lsp@nightly
   build:
-    run: npm install --no-audit https://github.com/PEMessage/arkts-lsp/releases/download/nightly/arkts-lsp-0.3.0.tgz
+    run: npm install --no-audit https://github.com/PEMessage/arkts-lsp/releases/download/nightly/arkts-lsp.tgz
 
 bin:
   arkts-lsp: npm:arkts-lsp
